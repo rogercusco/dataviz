@@ -1,0 +1,604 @@
+---
+title: "Data Visualization Project"
+subtitle: 'Spaniards political tastes'
+author: 'Roger Cuscó'
+output: html_document
+---
+
+&nbsp;
+
+&nbsp;
+
+#### Overview
+
+The spanish political spectrum has changed substantially in recent years. New parties -mainly Podemos and Ciudadanos- have emerged with enough votes to make it impossible for any of the traditional parties to obtain a majority of seats in the congress. The following analysis tries to shed some light on the demographics of the voters and supporters of each party. 
+
+&nbsp;
+
+#### Data 
+
+The data used in the analysis has been obtained from two different sources:
+
+* Microdata from [CIS (Centro de Investigaciones Sociológicas) surveys](http://www.cis.es/cis/opencms/EN/1_encuestas/UsuariosMicrodatos/accesousuarios.html) from January, April, July and October of 2015, all previous to the general elections of December 20th, 2015. In total they amount to 9939 individual surveys, containing information such as individual income, age, voting intention, citizenship, and opinion of several current economic and political affairs. 
+
+* Data on the 2015 general elections results, scrapped from [the official results webpage (Ministerio del interior)](https://resultadosgenerales2015.interior.es/congreso/#/ES201512-CON-ES/ES). The results are scrapped from the json files cointaining the results at a provincial level (circunscripciones). 
+
+&nbsp;
+
+#### Geography of results
+
+The following maps show the percentage of the electorate in each province that voted for each of the four main parties. The polygons representing the canary islands have been shifted closer to the peninsula. 
+
+```{r, echo=FALSE, message=FALSE}
+
+setwd("~/Documents/data_MP")
+require(lattice)
+require(RColorBrewer)
+# require(jsonlite)
+
+# read in spain's province map
+mapp <- readRDS("ESP_adm2.rds")
+load('results_2015.RData')
+
+# Plotting the results of each of the main parties in a map 
+# getting percentages for each party in each province
+
+votes_df <- data.frame(CCA_2 = rep(NA, 52), votes = rep(NA, 52), 
+                       pp = rep(NA, 52),
+                       psoe = rep(NA, 52), podemos = rep(NA, 52),
+                       cs = rep(NA, 52), comu = rep(NA, 52),
+                       compromis = rep(NA, 52), part = rep(NA, 52),
+                       census = rep(NA, 52))
+
+for(i in 1:52) {
+
+  df <- results_2015[[i]]$res
+  pp <- ifelse(length(df$votes[which(df$color == '#0194D9'), 1]) != 0,
+                      df$votes[which(df$color == '#0194D9'), 1], 0)
+  
+  psoe <- ifelse(length(df$votes[which(df$color == "#F82433"), 1]) != 0,
+                        df$votes[which(df$color == "#F82433"), 1], 0)
+                        
+  cs <- ifelse(length(df$votes[which(df$color == "#EF7A36"), 1]) != 0,
+                      df$votes[which(df$color == "#EF7A36"), 1], 0)
+                      
+  podemos <- ifelse(length(df$votes[which(df$color == "#9C489E"), 1]) != 0,
+                           df$votes[which(df$color == "#9C489E"), 1], 0)
+                           
+  comu <- ifelse(length(df$votes[which(df$color == "#CC99FF"), 1]) != 0,
+                        df$votes[which(df$color == "#CC99FF"), 1], 0)
+                        
+  comp <- ifelse(length(df$votes[which(df$color == "#FF9999"), 1]) != 0,
+                        df$votes[which(df$color == "#FF9999"), 1], 0)
+  
+  votes <- results_2015[[i]]$part
+  census <- results_2015[[i]]$cens
+  part <- votes/census*100
+  
+  vec <- c(ifelse(i<10, paste0(0,i),i) , votes, pp, psoe, podemos, cs, comu, comp, part, census)
+  votes_df[i,] <- vec
+  
+}
+
+# merge percentages in mapp@data and plot for each of the 4 main parties
+# http://rstudio-pubs-static.s3.amazonaws.com/7202_3145df2a90a44e6e86a0637bc4264f9f.html
+
+votes_df$ppp <- as.numeric(votes_df$pp)/as.numeric(votes_df$votes)*100
+votes_df$ppsoe <- as.numeric(votes_df$psoe)/as.numeric(votes_df$votes)*100
+votes_df$pcs <- as.numeric(votes_df$cs)/as.numeric(votes_df$votes)*100
+votes_df$ppoc <- (as.numeric(votes_df$podemos) + as.numeric(votes_df$comu) + as.numeric(votes_df$compromis))/as.numeric(votes_df$votes)*100 
+
+mapp@data[47,11] <- 38
+mapp@data <- merge(mapp@data, votes_df, by='CCA_2', sort=FALSE)
+mapp@data <- mapp@data[order(mapp@data[,2]),]
+
+# relocate canary islands 
+
+for(i in 46:48) {
+  if(i == 46) {
+  for(j in 1:14){
+    mapp@polygons[[i]]@Polygons[[j]]@coords = mapp@polygons[[i]]@Polygons[[j]]@coords + 8
+  }}
+  if(i == 47) {
+  for(k in 1:3){
+    mapp@polygons[[i]]@Polygons[[k]]@coords = mapp@polygons[[i]]@Polygons[[k]]@coords + 8
+  }}
+  if(i == 48) {
+  for(l in 1:4) {
+    mapp@polygons[[i]]@Polygons[[l]]@coords = mapp@polygons[[i]]@Polygons[[l]]@coords + 8
+  }}
+}
+```
+
+
+```{r, echo=FALSE}
+
+trellis.par.set(axis.line=list(col=NA)) 
+# par(mfrow=c(2,2))
+# plot PP
+
+p1 <- spplot(mapp, "ppp", col.regions = colorRampPalette(brewer.pal(9, "Blues"))(52),
+       col = "white", xlim=c(-12,4.7), ylim=c(34,45),
+       main = '% PP')
+
+p2 <- spplot(mapp, "ppsoe", col.regions = colorRampPalette(brewer.pal(9, "Reds"))(52),
+       col = "white", xlim=c(-12,4.7), ylim=c(34,45),
+       main = '% PSOE')
+
+
+# plot PODEMOS
+
+p3 <- spplot(mapp, "ppoc", col.regions = colorRampPalette(brewer.pal(9, "Purples"))(52),
+       col = "white", xlim=c(-12,4.7), ylim=c(34,45),
+       main = '% Podemos')
+
+# plot C's
+
+p4 <- spplot(mapp, "pcs", col.regions = colorRampPalette(brewer.pal(9, "Oranges")[1:6])(52),
+       col = "white", xlim=c(-12,4.7), ylim=c(34,45),
+       main = '% Ciudadanos')
+
+print(p1, spli = c(1, 1, 2, 2), more = TRUE)
+print(p2, split = c(2, 1, 2, 2), more = TRUE)
+print(p3, split = c(1, 2, 2, 2), more = TRUE)
+print(p4, split = c(2, 2, 2, 2))
+
+```
+
+It it easy to see, for instance, that in the catalan provinces the two big traditional parties -PP and PSOE- get mediocre results, while the new parties -Podemos and Ciudadanos- manage to get results in line with their national average.   
+
+The CIS dataset is not big enough to expand the plots including more variables as in [Figure 4 from Makela, Ghitza and Gelman, 2013](http://www.stat.columbia.edu/~gelman/research/published/misterp.pdf).
+
+In the case of Spain, such a breakdown of results creates too many blank provinces. It would be possible to aggregate even more CIS surveys, but at the risk of getting inaccurate results due to the changes in the preferences of the population over time. Moreover, there is an unavoidable lack of historical data regarding parties like Ciudadanos and Podemos, which exist as parties competing in general elections only since 2015. 
+
+&nbsp;
+
+#### Spotting non-linearities
+
+Having data at the individual level allows us to go beyond reporting simple averages for each category. For instance, we can see the complex interaction of age and voting intention, measured as percentatge of interviewees that intended to vote for each party over the total number of interviewees with the intention to vote. 
+
+Bubbles in purple represent different age groups of interviewees that intended to vote for Podemos. And those in blue are the equivalent for PP. The size of the bubbles indicate the size of the age group in the survey. Loess fitted lines are plotted to help visualize the trends.
+
+```{r, echo=FALSE}
+# age 
+
+cis <- read.csv("clean/preelectorals.csv")
+
+cis$group_age <- rep(NA, nrow(cis))
+for(i in 1:nrow(cis)) {
+  if(cis[i, 8] > 83 & cis[i, 8] < 86) cis[i,12] <- 85
+  if(cis[i, 8] > 86) cis[i,12] <- 88
+  if(cis[i, 8] < 83) cis[i,12] <- cis[i,8]
+}
+
+# par(mfrow=c(1,2))
+
+df_age <- tapply(cis$age, cis$group_age, length)
+df_age_pp <- cis[cis$voting_intention == 1,]
+pp_v <- tapply(df_age_pp$age, df_age_pp$group_age, length)
+
+plot(as.numeric(names(df_age)), pp_v/df_age*100, 
+     cex=(df_age/mean(df_age)+0.6), col=adjustcolor('#0194D9',alpha.f=0.4), 
+     bg= adjustcolor('#0194D9',alpha.f=0.4), pch=21, xlab='Age', ylab='% vote')
+
+df = as.data.frame(cbind(as.numeric(names(df_age)),pp_v/df_age*100 ))
+loessf = loess(df[, 2] ~ df[, 1], data=df)
+predicted = predict(loessf, df[, 1])
+lines(seq(18, 88, length.out = length(predicted)), predicted, 
+      col="#0194D9",lwd=2)
+
+# PODEMOS
+
+df_age_po <- cis[cis$voting_intention == 15,]
+po_v <- tapply(df_age_po$age, df_age_po$group_age, length)
+
+ages_po <- df_age[as.numeric(names(df_age)) %in% as.numeric(names(po_v))]
+points(as.numeric(names(po_v)), po_v/ages_po*100, 
+       cex=(df_age/mean(df_age)+0.6), col=adjustcolor('#9C489E',alpha.f=0.4), 
+       bg= adjustcolor('#9C489E',alpha.f=0.4), pch=21)
+
+df = as.data.frame(cbind(as.numeric(names(po_v)),po_v/ages_po*100 ))
+loessf = loess(df[, 2] ~ df[, 1], data=df)
+predicted = predict(loessf, df[, 1])
+lines(seq(18, 88, length.out = length(predicted)), predicted, 
+      col="#9C489E",lwd=2)
+```
+
+The difference in the age of each party is notable. We can see that Podemos appeals to a younger electorate than PP, while PSOE (red bubbles) and C's (orange bubbles) show a less monotonic relationship:
+
+```{r, echo=FALSE}
+# PSOE
+
+df_age_psoe <- cis[cis$voting_intention == 2,]
+psoe_v <- tapply(df_age_psoe$age, df_age_psoe$group_age, length)
+
+ages_psoe <- df_age[as.numeric(names(df_age)) %in% as.numeric(names(psoe_v))]
+plot(as.numeric(names(psoe_v)), psoe_v/ages_psoe*100, 
+       cex=(df_age/mean(df_age)+0.6),   col=adjustcolor('#F82433',alpha.f=0.4), 
+       bg= adjustcolor('#F82433',alpha.f=0.4), pch=21, xlab='Age', 
+       ylab='% vote', ylim=c(0,30))
+
+df = as.data.frame(cbind(as.numeric(names(psoe_v)),psoe_v/ages_psoe*100 ))
+loessf = loess(df[, 2] ~ df[, 1], data=df)
+predicted = predict(loessf, df[, 1])
+lines(seq(18, 88, length.out = length(predicted)), predicted, 
+      col="#F82433",lwd=2)
+
+# C's
+
+df_age_cs <- cis[cis$voting_intention == 16,]
+cs_v <- tapply(df_age_cs$age, df_age_cs$group_age, length)
+
+ages_cs <- df_age[as.numeric(names(df_age)) %in% as.numeric(names(cs_v))]
+points(as.numeric(names(cs_v)), cs_v/ages_cs*100, 
+       cex=(df_age/mean(df_age)+0.6), col=adjustcolor('#EF7A36', alpha.f=0.4), 
+       bg= adjustcolor('#EF7A36',alpha.f=0.4), pch=21)
+
+df = as.data.frame(cbind(as.numeric(names(cs_v)),cs_v/ages_cs*100 ))
+loessf = loess(df[, 2] ~ df[, 1], data=df)
+predicted = predict(loessf, df[, 1])
+lines(seq(18, 88, length.out = length(predicted)), predicted, 
+      col="#EF7A36",lwd=2)
+```
+
+We can conduct a similar analysis for other variables, such as household income or education. A possible way to plot them is using a stream graph, showing income or education in the horizontal axis, and the number of interviewees in the vertical axis, having one colour stream per each party. The variables education and income are categorical, so the stream actually is the result of fitting a loess curve to the data point of each subgroup, as in the previous graphs. 
+
+
+```{r, echo=FALSE}
+library(streamgraph)
+# a better stream graph 
+
+cis2 <- read.csv("clean/preelectorals2.csv")
+
+cis2$education[cis2$education == 3] <- 4
+
+sgdata <- cis2[(cis2$voting_intention == 1 | cis2$voting_intention == 2 |
+               cis2$voting_intention == 15 | cis2$voting_intention == 16) &
+               cis2$education < 15,]
+
+vote <- c(table(sgdata$voting_intention, sgdata$education)[1,],
+          table(sgdata$voting_intention, sgdata$education)[2,],
+          table(sgdata$voting_intention, sgdata$education)[3,],
+          table(sgdata$voting_intention, sgdata$education)[4,])
+
+party <- c(rep("PP", 14), rep("PSOE", 14), rep("Podemos", 14), 
+           rep("Ciudadanos", 14))
+          
+
+dates <- c(seq(as.Date("2015/1/1"), as.Date("2015/1/16"),length.out=14),
+           seq(as.Date("2015/1/1"), as.Date("2015/1/16"),length.out=14),
+           seq(as.Date("2015/1/1"), as.Date("2015/1/16"),length.out=14),
+           seq(as.Date("2015/1/1"), as.Date("2015/1/16"),length.out=14))
+
+df <- data.frame(vote=vote, party=party, dates=dates)
+df <- as.data.frame(df)
+df$edu <- as.factor(as.Date(as.numeric(df$dates), origin="2016-10-01"))
+df$vote <- as.numeric(df$vote)
+df$party <- as.factor(df$party)
+
+rownames(df) <- seq(1,56)
+
+df %>%
+  streamgraph('party', 'vote', 'edu') %>%
+  sg_legend(show=TRUE, label='Party: ') %>%
+  sg_fill_manual(c('#EF7A36', '#0194D9', '#F82433', '#9C489E')) %>%
+  sg_title("Education")
+```
+
+I haven't manage to add a proper x axis to the stream plots. In the first plot (education) the x axis should specify 14 categories, ranging from 'No scholarization' to 'PhD's and post-docs'. The categories with more stream are Primary and Secondary school. In the income stream graph, the x axis should range from 0€ a month to '6000€ or more'. The stream peaks at the 1201€-1800€ range. 
+
+```{r, echo=FALSE, out.width=4, fig.height=2.5}
+library(streamgraph)
+# a better stream graph 
+
+#cis2 <- read.csv("clean/preelectorals2.csv")
+
+sgdata <- cis2[(cis2$voting_intention == 1 | cis2$voting_intention == 2 |
+               cis2$voting_intention == 15 | cis2$voting_intention == 16) &
+               cis2$household_income < 15,]
+
+vote <- c(table(sgdata$voting_intention, sgdata$household_income)[1,],
+          table(sgdata$voting_intention, sgdata$household_income)[2,],
+          table(sgdata$voting_intention, sgdata$household_income)[3,],
+          table(sgdata$voting_intention, sgdata$household_income)[4,])
+
+party <- c(rep("PP", 11), rep("PSOE", 11), rep("Podemos", 11), 
+           rep("Ciudadanos", 11))
+          
+
+dates <- c(seq(as.Date("2015/1/1"), as.Date("2015/1/16"),length.out=11),
+           seq(as.Date("2015/1/1"), as.Date("2015/1/16"),length.out=11),
+           seq(as.Date("2015/1/1"), as.Date("2015/1/16"),length.out=11),
+           seq(as.Date("2015/1/1"), as.Date("2015/1/16"),length.out=11))
+
+df <- data.frame(vote=vote, party=party, dates=dates)
+df <- as.data.frame(df)
+df$edu <- as.factor(as.Date(as.numeric(df$dates), origin="2016-10-01"))
+df$vote <- as.numeric(df$vote)
+df$party <- as.factor(df$party)
+
+rownames(df) <- seq(1,44)
+
+df %>%
+  streamgraph('party', 'vote', 'edu') %>%
+  sg_legend(show=TRUE, label='Party: ') %>%
+  sg_fill_manual(c('#EF7A36', '#0194D9', '#F82433', '#9C489E')) %>%
+  sg_title("Income")
+ # sg_axis_x(1,c(0,1,2,3,4,5,6,7,8,9,10,11))
+```
+
+In such a graph it is easy to observe the relative widths of the streams. In this case, we can see, for example, that PSOE tends to be more popular among the less educated and lower income segments of the population, compared to Ciudadanos and Podemos, which are relatively more popular with higher income and more educated voters. 
+
+&nbsp;
+
+#### The geometry of the data
+
+Another interesting aspect to consider would be to measure the similarities between the supporters of each party. However, with the data available (using the variables age, household income, gender, education level and size of the municipality of residence), the overlapping between the typical voter of each party is too big to produce meaningful results. 
+
+Using MDS to compare the supporters of Podemos (purple) and PP (blue), which are the best case in terms of dissimilarity, we obtain the following result. 
+
+```{r, echo=FALSE}
+# MDS 
+  cis2 <- read.csv("clean/preelectorals2.csv")
+  dcis <- cis2[,c(5:9,11:12)]
+  dcis <- dcis[dcis$education < 20,]
+  dcis <- dcis[dcis$household_income < 20,]
+  
+  dcis <- dcis[dcis$voting_intention == 1 | # | dcis$voting_intention == 2 |
+                 dcis$voting_intention == 15,] 
+  # | dcis$voting_intention == 16,]
+  
+  dcisc <- dcis[,-6]
+  
+  # d <- dist(cis2[,3:12]) # euclidean distances between the rows
+  d <- dist(dcisc)
+  fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+  # fit # view results
+  
+  # plot solution 
+  x <- fit$points[,1]
+  y <- fit$points[,2]
+  plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2", 
+       main="MDS", col=ifelse(dcis$voting_intention > 14, 
+                              adjustcolor("#9C489E", alpha.f=0.5),
+                              adjustcolor("#0194D9", alpha.f=0.4)))
+```
+
+We can see that only one dimension really helps us distinguish each segment of the population, but the overlapping is still huge. The following biplot tells us a similar story.
+
+```{r, echo=FALSE}
+  
+ sdcis <- apply(dcisc, 2, scale)
+  # do a SVD
+  EU.svd <- svd(sdcis/sqrt(nrow(dcis)))
+  EU.F <- EU.svd$u %*% diag(EU.svd$d)
+  EU.G <- EU.svd$v
+  # plot
+  
+  par(mar=c(4.2,4,1,1), cex.axis=0.7)
+  plot(rbind(EU.F, EU.G), type= 'n', xlab="PC1", ylab="PC2"
+       , ylim=c(-.3,.6),xlim=c(-.7,.45))
+  abline(h=0, col="gray", lty=2)
+  abline(v=0, col="gray", lty=2)
+  segments(0, 0, 0.8*EU.G[,1], 0.8*EU.G[,2], 
+           col=adjustcolor("darkred", alpha.f=0.5), lwd=2, lty=1) 
+  
+  points(5*EU.F, col=ifelse(dcis$voting_intention > 14, 
+                            adjustcolor("#9C489E", alpha.f=0.5),
+                            adjustcolor("#0194D9", alpha.f=0.4)))
+  # text(EU.F, labels=rownames(dcis), col="blue", font=2, cex=0.9) 
+  text(0.9*EU.G, labels=colnames(sdcis), col="darkred", font=4, cex=0.9)
+  library(car)
+  dataEllipse(5*EU.F[(dcis$voting_intention > 14),1], 
+              5*EU.F[(dcis$voting_intention > 14),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#9C489E", alpha.f=0.5),
+              center.pch=0)
+  dataEllipse(5*EU.F[(dcis$voting_intention < 14),1], 
+              5*EU.F[(dcis$voting_intention < 14),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#0194D9", alpha.f=0.4),
+              center.pch=0)
+  legend("topleft", bty = 'n', pch=c(1,1), col=c('#9C489E', '#0194D9'), 
+       legend = c('Podemos', 'PP'), cex = 0.8)
+```
+
+Only age (and perhaps education and income) seem to play a significant role in explaining the differences in the spacial distribution of the obsevations. 
+
+With this much overlapping, a biplot including all four parties does not provide much insight. However, producing biplots for each different pair of parties, a pattern seems to appear. The supporters of new parties (Podemos and Ciudadanos) show almost complete overlapping among each other, as do the and the supportes of old parties (PP and PSOE). However, the biplots of old versus new parties show a lesser degree of overlapping. A 95% confidence ellipse is plotted to help visualize the clusters.
+
+##### Old vs Old and New vs New
+
+```{r, echo=FALSE, fig.width=12, fig.height=5}
+  
+par(mfrow=c(1,2))
+ 
+  # PP vs PSOE 
+   # SVD 
+  cis2 <- read.csv("clean/preelectorals2.csv")
+  dcis <- cis2[,c(5:9,11:12)]
+  dcis <- dcis[dcis$education < 20,]
+  dcis <- dcis[dcis$household_income < 20,]
+  
+  dcis <- dcis[dcis$voting_intention == 1 | dcis$voting_intention == 2,] 
+  
+  dcisc <- dcis[,-6]
+  
+ sdcis <- apply(dcisc, 2, scale)
+  # do a SVD
+  EU.svd <- svd(sdcis/sqrt(nrow(dcis)))
+  EU.F <- EU.svd$u %*% diag(EU.svd$d)
+  EU.G <- EU.svd$v
+  # plot
+  
+  par(mar=c(4.2,4,1,1), cex.axis=0.7)
+  plot(rbind(EU.F, EU.G), type= 'n', xlab="PC1", ylab="PC2"
+       , ylim=c(-.7,.4),xlim=c(-.5,.7))
+  abline(h=0, col="gray", lty=2)
+  abline(v=0, col="gray", lty=2)
+  segments(0, 0, 0.8*EU.G[,1], 0.8*EU.G[,2], 
+           col=adjustcolor("darkred", alpha.f=0.5), lwd=2, lty=1) 
+  
+  points(5*EU.F, col=ifelse(dcis$voting_intention > 1, 
+                            adjustcolor("#F82433", alpha.f=0.5),
+                            adjustcolor("#0194D9", alpha.f=0.4)))
+  # text(EU.F, labels=rownames(dcis), col="blue", font=2, cex=0.9) 
+  text(0.9*EU.G, labels=colnames(sdcis), col="darkred", font=4, cex=0.9)
+  library(car)
+  dataEllipse(5*EU.F[(dcis$voting_intention > 1),1], 
+              5*EU.F[(dcis$voting_intention > 1),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#F82433", alpha.f=0.5),
+              center.pch=0)
+  dataEllipse(5*EU.F[(dcis$voting_intention <= 1),1], 
+              5*EU.F[(dcis$voting_intention <= 1),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#0194D9", alpha.f=0.4),
+              center.pch=0)
+  legend("topleft", bty = 'n', pch=c(1,1), col=c('#F82433', '#0194D9'), 
+       legend = c('PSOE', 'PP'), cex = 0.8)
+
+# Cs vs Podemos
+  
+     # SVD 
+  cis2 <- read.csv("clean/preelectorals2.csv")
+  dcis <- cis2[,c(5:9,11:12)]
+  dcis <- dcis[dcis$education < 20,]
+  dcis <- dcis[dcis$household_income < 20,]
+  
+  dcis <- dcis[dcis$voting_intention == 15 | dcis$voting_intention == 16,] 
+  
+  dcisc <- dcis[,-6]
+  
+ sdcis <- apply(dcisc, 2, scale)
+  # do a SVD
+  EU.svd <- svd(sdcis/sqrt(nrow(dcis)))
+  EU.F <- EU.svd$u %*% diag(EU.svd$d)
+  EU.G <- EU.svd$v
+  # plot
+  
+  par(mar=c(4.2,4,1,1), cex.axis=0.7)
+  plot(rbind(EU.F, EU.G), type= 'n', xlab="PC1", ylab="PC2"
+       , ylim=c(-.37,.7),xlim=c(-.75,.45))
+  abline(h=0, col="gray", lty=2)
+  abline(v=0, col="gray", lty=2)
+  segments(0, 0, 0.8*EU.G[,1], 0.8*EU.G[,2], 
+           col=adjustcolor("darkred", alpha.f=0.5), lwd=2, lty=1) 
+  
+  points(5*EU.F, col=ifelse(dcis$voting_intention > 15, 
+                            adjustcolor("#EF7A36", alpha.f=0.5),
+                            adjustcolor("#9C489E", alpha.f=0.4)))
+  # text(EU.F, labels=rownames(dcis), col="blue", font=2, cex=0.9) 
+  text(0.9*EU.G, labels=colnames(sdcis), col="darkred", font=4, cex=0.9)
+  library(car)
+  dataEllipse(5*EU.F[(dcis$voting_intention > 15),1], 
+              5*EU.F[(dcis$voting_intention > 15),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#EF7A36", alpha.f=0.5),
+              center.pch=0)
+  dataEllipse(5*EU.F[(dcis$voting_intention <= 15),1], 
+              5*EU.F[(dcis$voting_intention <= 15),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#9C489E", alpha.f=0.4),
+              center.pch=0)
+  legend("topleft", bty = 'n', pch=c(1,1), col=c('#EF7A36', '#9C489E'), 
+       legend = c('Ciudadanos', 'Podemos'), cex = 0.8)
+```
+
+##### Old vs New 
+
+```{r, echo=FALSE, fig.width=12, fig.height=5}
+
+  par(mfrow=c(1,2))  
+    # SVD 
+  cis2 <- read.csv("clean/preelectorals2.csv")
+  dcis <- cis2[,c(5:9,11:12)]
+  dcis <- dcis[dcis$education < 20,]
+  dcis <- dcis[dcis$household_income < 20,]
+  
+  dcis <- dcis[dcis$voting_intention == 1 | dcis$voting_intention == 16,] 
+  
+  dcisc <- dcis[,-6]
+  
+ sdcis <- apply(dcisc, 2, scale)
+  # do a SVD
+  EU.svd <- svd(sdcis/sqrt(nrow(dcis)))
+  EU.F <- EU.svd$u %*% diag(EU.svd$d)
+  EU.G <- EU.svd$v
+  # plot
+  
+  par(mar=c(4.2,4,1,1), cex.axis=0.7)
+  plot(rbind(EU.F, EU.G), type= 'n', xlab="PC1", ylab="PC2"
+       , ylim=c(-.3,.7),xlim=c(-.7,.45))
+  abline(h=0, col="gray", lty=2)
+  abline(v=0, col="gray", lty=2)
+  segments(0, 0, 0.8*EU.G[,1], 0.8*EU.G[,2], 
+           col=adjustcolor("darkred", alpha.f=0.5), lwd=2, lty=1) 
+  
+  points(5*EU.F, col=ifelse(dcis$voting_intention > 14, 
+                            adjustcolor("#EF7A36", alpha.f=0.5),
+                            adjustcolor("#0194D9", alpha.f=0.4)))
+  # text(EU.F, labels=rownames(dcis), col="blue", font=2, cex=0.9) 
+  text(0.9*EU.G, labels=colnames(sdcis), col="darkred", font=4, cex=0.9)
+  library(car)
+  dataEllipse(5*EU.F[(dcis$voting_intention > 14),1], 
+              5*EU.F[(dcis$voting_intention > 14),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#EF7A36", alpha.f=0.5),
+              center.pch=0)
+  dataEllipse(5*EU.F[(dcis$voting_intention < 14),1], 
+              5*EU.F[(dcis$voting_intention < 14),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#0194D9", alpha.f=0.4),
+              center.pch=0)
+  legend("topleft", bty = 'n', pch=c(1,1), col=c('#EF7A36', '#0194D9'), 
+       legend = c('Ciudadanos', 'PP'), cex = 0.8)
+  
+  # 2
+  cis2 <- read.csv("clean/preelectorals2.csv")
+  dcis <- cis2[,c(5:9,11:12)]
+  dcis <- dcis[dcis$education < 20,]
+  dcis <- dcis[dcis$household_income < 20,]
+  
+  dcis <- dcis[dcis$voting_intention == 2 | dcis$voting_intention == 15,] 
+  
+  dcisc <- dcis[,-6]
+  
+ sdcis <- apply(dcisc, 2, scale)
+  # do a SVD
+  EU.svd <- svd(sdcis/sqrt(nrow(dcis)))
+  EU.F <- EU.svd$u %*% diag(EU.svd$d)
+  EU.G <- EU.svd$v
+  # plot
+  
+  par(mar=c(4.2,4,1,1), cex.axis=0.7)
+  plot(rbind(EU.F, EU.G), type= 'n', xlab="PC1", ylab="PC2"
+       , ylim=c(-.3,.7),xlim=c(-.7,.45))
+  abline(h=0, col="gray", lty=2)
+  abline(v=0, col="gray", lty=2)
+  segments(0, 0, 0.8*EU.G[,1], 0.8*EU.G[,2], 
+           col=adjustcolor("darkred", alpha.f=0.5), lwd=2, lty=1) 
+  
+  points(5*EU.F, col=ifelse(dcis$voting_intention > 14, 
+                            adjustcolor("#9C489E", alpha.f=0.5),
+                            adjustcolor("#F82433", alpha.f=0.4)))
+  # text(EU.F, labels=rownames(dcis), col="blue", font=2, cex=0.9) 
+  text(0.9*EU.G, labels=colnames(sdcis), col="darkred", font=4, cex=0.9)
+  library(car)
+  dataEllipse(5*EU.F[(dcis$voting_intention > 14),1], 
+              5*EU.F[(dcis$voting_intention > 14),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#9C489E", alpha.f=0.5),
+              center.pch=0)
+  dataEllipse(5*EU.F[(dcis$voting_intention < 14),1], 
+              5*EU.F[(dcis$voting_intention < 14),2], 
+              levels=.95, add=TRUE, plot.points=FALSE,
+              col=adjustcolor("#F82433", alpha.f=0.4),
+              center.pch=0)
+  legend("topleft", bty = 'n', pch=c(1,1), col=c('#9C489E', '#F82433'), 
+       legend = c('Podemos', 'PSOE'), cex = 0.8)
+```
+
+#### Conclusion
+
+Although the CIS surveys are too small to analyse most interactions between different demographic variables, we can still spot some non-linearities regarding age, income and education that can be of interest when using survey data for election prediction. The data also seems to suggest that differences between supporters of the old and new parties are greater than the differences within old and new parties.  
