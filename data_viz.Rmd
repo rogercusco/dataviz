@@ -1,6 +1,6 @@
 ---
 title: "Data Visualization Project"
-subtitle: 'Spaniards political tastes'
+subtitle: "Visualising Spaniards' Political Tastes"
 author: 'Roger Cuscó'
 output: html_document
 ---
@@ -601,4 +601,4 @@ par(mfrow=c(1,2))
 
 #### Conclusion
 
-Although the CIS surveys are too small to analyse most interactions between different demographic variables, we can still spot some non-linearities regarding age, income and education that can be of interest when using survey data for election prediction. The data also seems to suggest that differences between supporters of the old and new parties are greater than the differences within old and new parties.  
+Although the CIS surveys are too small to analyse most interactions between different demographic variables, we can still spot some non-linearities regarding age, income and education that can be of interest when using survey data for election prediction. The data also seems to suggest that differences across supporters of the old and new parties are greater than the differences within old and new parties.  
